@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Three.js Room</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script src="./build/three.min.js"></script>
+<script src="./examples/jsm/controls/OrbitControls.js"></script>
+<script src="./examples/jsm/loaders/GLTFLoader.js"></script>
+<script src="./examples/jsm/loaders/RGBELoader.js"></script>
+<script src="./examples/jsm/loaders/DRACOLoader.js"></script>
+<script src="./examples/jsm/libs/draco/gltf/draco_decoder.js"></script>
+
+<script>
+// Scene, Camera, Renderer Setup
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+document.body.appendChild(renderer.domElement);
+
+// Room Dimensions
+const roomWidth = 31.62; // Approx. 1000 sqft
+const roomHeight = 10;   // Room height
+const roomDepth = roomWidth;
+
+// HDR Environment
+const rgbeLoader = new THREE.RGBELoader();
+rgbeLoader.setDataType(THREE.UnsignedByteType);
+rgbeLoader.load('https://threejs.org/examples/textures/equirectangular/venice_sunset_1k.hdr', function (texture) {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = texture;
+    scene.background = texture;
+});
+
+// Textures
+const floorTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
+floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+floorTexture.repeat.set(4, 4);
+
+const wallTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/brick_diffuse.jpg');
+wallTexture.wrapS = wallTexture.wrapT = THREE.RepeatWrapping;
+wallTexture.repeat.set(4, 4);
+
+// Room Creation
+const floorMaterial = new THREE.MeshStandardMaterial({ map: floorTexture });
+const wallMaterial = new THREE.MeshStandardMaterial({ map: wallTexture });
+
+const floorGeometry = new THREE.PlaneGeometry(roomWidth, roomDepth);
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+const wallGeometry = new THREE.PlaneGeometry(roomWidth, roomHeight);
+const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+backWall.position.z = -roomDepth / 2;
+backWall.position.y = roomHeight / 2;
+scene.add(backWall);
+
+const frontWall = new THREE.Mesh(wallGeometry, wallMaterial);
+frontWall.position.z = roomDepth / 2;
+frontWall.position.y = roomHeight / 2;
+frontWall.rotation.y = Math.PI;
+scene.add(frontWall);
+
+const sideWallGeometry = new THREE.PlaneGeometry(roomDepth, roomHeight);
+const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+leftWall.position.x = -roomWidth / 2;
+leftWall.position.y = roomHeight / 2;
+leftWall.rotation.y = Math.PI / 2;
+scene.add(leftWall);
+
+const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+rightWall.position.x = roomWidth / 2;
+rightWall.position.y = roomHeight / 2;
+rightWall.rotation.y = -Math.PI / 2;
+scene.add(rightWall);
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+const pointLight = new THREE.PointLight(0xffffff, 1);
+pointLight.position.set(roomWidth / 2, roomHeight, roomDepth / 2);
+scene.add(pointLight);
+
+// DRACO Loader for compressed models
+const dracoLoader = new THREE.DRACOLoader();
+dracoLoader.setDecoderPath('examples/jsm/libs/draco/gltf/');
+
+// GLTF Loader
+const gltfLoader = new THREE.GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+
+const models = [
+    'https://threejs.org/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf', // Example model URL
+    // Add more model URLs here
+];
+
+function loadModel(url, position, scale) {
+    gltfLoader.load(url, function(gltf) {
+        const model = gltf.scene;
+        model.position.set(position.x, position.y, position.z);
+        model.scale.set(scale.x, scale.y, scale.z);
+        scene.add(model);
+    });
+}
+
+// Randomly place models
+for (let i = 0; i < models.length; i++) {
+    const position = {
+        x: (Math.random() - 0.5) * roomWidth,
+        y: 0,
+        z: (Math.random() - 0.5) * roomDepth
+    };
+    const scale = { x: 0.5, y: 0.5, z: 0.5 };
+    loadModel(models[i], position, scale);
+}
+
+// Camera positioning
+camera.position.set(roomWidth / 2, roomHeight / 2, roomDepth * 1.5);
+
+// Controls
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.25;
+controls.screenSpacePanning = false;
+controls.maxPolarAngle = Math.PI / 2;
+
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+animate();
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
